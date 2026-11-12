@@ -71,6 +71,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setLoading(false);
               return;
             }
+          } else {
+            // Check stored user ID directly in Supabase profiles table
+            const savedUserId = localStorage.getItem(LOCAL_STORAGE_USER_KEY) || 'user-bendum';
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', savedUserId)
+              .single();
+
+            if (profile) {
+              setCurrentUser(profile);
+              setIsDemoMode(false);
+              const { data: access } = await supabase
+                .from('user_kas_access')
+                .select('*')
+                .eq('user_id', profile.id);
+              if (access) setUserKasAccess(access);
+              setLoading(false);
+              return;
+            }
           }
         } catch (err) {
           console.warn('Supabase auth session error, falling back to local session:', err);
@@ -113,7 +133,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) return { error };
+        if (error) {
+          // If Supabase Auth account is not yet created, check public.profiles table in Supabase
+          const { data: dbProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .ilike('email', email.trim())
+            .single();
+
+          if (dbProfile) {
+            setCurrentUser(dbProfile);
+            localStorage.setItem(LOCAL_STORAGE_USER_KEY, dbProfile.id);
+            const { data: access } = await supabase
+              .from('user_kas_access')
+              .select('*')
+              .eq('user_id', dbProfile.id);
+            if (access) setUserKasAccess(access);
+            setIsDemoMode(false);
+            return { error: null };
+          }
+          return { error };
+        }
         if (data.user) {
           const { data: profile } = await supabase
             .from('profiles')

@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { isSupabaseConfigured } from '../../lib/supabase';
 import { TransactionModal } from '../transactions/TransactionModal';
 import { TransferModal } from '../transactions/TransferModal';
 
@@ -409,6 +410,19 @@ export const AppLayout: React.FC = () => {
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
               <span>T.A. {settings.active_year} · Basis Kas Dimodifikasi (ISAK 35)</span>
             </span>
+            <span className="text-slate-300">·</span>
+            <NavLink
+              to="/settings"
+              title={isSupabaseConfigured ? 'Supabase PostgreSQL Terhubung' : 'Klik untuk hubungkan database Supabase'}
+              className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-lg border flex items-center gap-1.5 shadow-2xs transition-all ${
+                isSupabaseConfigured
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                  : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${isSupabaseConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+              <span>{isSupabaseConfigured ? 'Supabase Terhubung' : 'Mode Demo / Lokal'}</span>
+            </NavLink>
           </div>
 
           <div className="flex items-center gap-2.5 relative">

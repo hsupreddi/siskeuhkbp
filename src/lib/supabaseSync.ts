@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured, getSupabaseClient } from './supabase';
 import {
   AppSettings,
   AuditLog,
@@ -41,6 +41,19 @@ import {
   LpjException,
   AuditPeriodVerification,
 } from '../types/database';
+import {
+  DEMO_KAS,
+  DEMO_STORAGE_ACCOUNTS,
+  DEMO_CATEGORIES,
+  DEMO_PROFILES,
+  DEMO_SETTINGS,
+  DEMO_OPENING_BALANCES,
+  DEMO_OPENING_SETUP,
+  DEMO_LPJ_SETTINGS,
+  DEMO_LPJ_NOTES,
+  DEMO_AUDIT_BODY_MEMBERS,
+  DEMO_USER_KAS_ACCESS,
+} from './demoData';
 
 export interface SupabaseDataset {
   kasList?: Kas[];
@@ -83,8 +96,14 @@ export interface SupabaseDataset {
 /**
  * Fetch all data from Supabase PostgreSQL tables
  */
-export async function fetchAllDataFromSupabase(): Promise<{ success: boolean; data?: SupabaseDataset; error?: string }> {
-  if (!isSupabaseConfigured || !supabase) {
+export async function fetchAllDataFromSupabase(): Promise<{
+  success: boolean;
+  data?: SupabaseDataset;
+  error?: string;
+  tableErrors?: string[];
+}> {
+  const client = getSupabaseClient();
+  if (!isSupabaseConfigured || !client) {
     return { success: false, error: 'Supabase belum dikonfigurasi.' };
   }
 
@@ -126,54 +145,89 @@ export async function fetchAllDataFromSupabase(): Promise<{ success: boolean; da
       exceptionsRes,
       settingsRes,
     ] = await Promise.all([
-      supabase.from('kas').select('*').order('kode'),
-      supabase.from('storage_accounts').select('*').order('nama'),
-      supabase.from('categories').select('*').order('nama'),
-      supabase.from('transactions').select('*').order('tanggal', { ascending: false }),
-      supabase.from('opening_balances').select('*'),
-      supabase.from('period_closings').select('*'),
-      supabase.from('reconciliations').select('*'),
-      supabase.from('audit_logs').select('*').order('changed_at', { ascending: false }).limit(250),
-      supabase.from('profiles').select('*').order('full_name'),
-      supabase.from('user_kas_access').select('*'),
-      supabase.from('budgets').select('*'),
-      supabase.from('budget_items').select('*'),
-      supabase.from('budget_reallocations').select('*'),
-      supabase.from('opening_setup').select('*').limit(1),
-      supabase.from('opening_balance_entries').select('*'),
-      supabase.from('opening_balance_adjustments').select('*'),
-      supabase.from('opening_other_positions').select('*'),
-      supabase.from('prior_year_summaries').select('*'),
-      supabase.from('fixed_assets').select('*'),
-      supabase.from('advances').select('*'),
-      supabase.from('advance_settlements').select('*'),
-      supabase.from('receivables_payables').select('*'),
-      supabase.from('lpj_notes').select('*').limit(1),
-      supabase.from('lpj_settings').select('*').limit(1),
-      supabase.from('audit_body_members').select('*'),
-      supabase.from('audit_engagements').select('*'),
-      supabase.from('audit_reviews').select('*'),
-      supabase.from('audit_findings').select('*'),
-      supabase.from('audit_final_opinions').select('*'),
-      supabase.from('audit_period_verifications').select('*'),
-      supabase.from('cash_counts').select('*'),
-      supabase.from('semester_reports').select('*'),
-      supabase.from('lpj_reports').select('*'),
-      supabase.from('lpj_exceptions').select('*'),
-      supabase.from('app_settings').select('*').limit(1),
+      client.from('kas').select('*').order('kode'),
+      client.from('storage_accounts').select('*').order('nama'),
+      client.from('categories').select('*').order('nama'),
+      client.from('transactions').select('*').order('tanggal', { ascending: false }),
+      client.from('opening_balances').select('*'),
+      client.from('period_closings').select('*'),
+      client.from('reconciliations').select('*'),
+      client.from('audit_logs').select('*').order('changed_at', { ascending: false }).limit(250),
+      client.from('profiles').select('*').order('full_name'),
+      client.from('user_kas_access').select('*'),
+      client.from('budgets').select('*'),
+      client.from('budget_items').select('*'),
+      client.from('budget_reallocations').select('*'),
+      client.from('opening_setup').select('*').limit(1),
+      client.from('opening_balance_entries').select('*'),
+      client.from('opening_balance_adjustments').select('*'),
+      client.from('opening_other_positions').select('*'),
+      client.from('prior_year_summaries').select('*'),
+      client.from('fixed_assets').select('*'),
+      client.from('advances').select('*'),
+      client.from('advance_settlements').select('*'),
+      client.from('receivables_payables').select('*'),
+      client.from('lpj_notes').select('*').limit(1),
+      client.from('lpj_settings').select('*').limit(1),
+      client.from('audit_body_members').select('*'),
+      client.from('audit_engagements').select('*'),
+      client.from('audit_reviews').select('*'),
+      client.from('audit_findings').select('*'),
+      client.from('audit_final_opinions').select('*'),
+      client.from('audit_period_verifications').select('*'),
+      client.from('cash_counts').select('*'),
+      client.from('semester_reports').select('*'),
+      client.from('lpj_reports').select('*'),
+      client.from('lpj_exceptions').select('*'),
+      client.from('app_settings').select('*').limit(1),
     ]);
+
+    const tableErrors: string[] = [];
+    if (kasRes.error) tableErrors.push(`kas: ${kasRes.error.message}`);
+    if (txRes.error) tableErrors.push(`transactions: ${txRes.error.message}`);
+    if (catRes.error) tableErrors.push(`categories: ${catRes.error.message}`);
 
     const result: SupabaseDataset = {};
 
-    if (kasRes.data && kasRes.data.length > 0) result.kasList = kasRes.data as Kas[];
-    if (storageRes.data && storageRes.data.length > 0) result.storageAccounts = storageRes.data as StorageAccount[];
-    if (catRes.data && catRes.data.length > 0) result.categories = catRes.data as Category[];
+    // Master Kas (with fallback to default HKBP kas if table is empty)
+    if (kasRes.data && kasRes.data.length > 0) {
+      result.kasList = kasRes.data as Kas[];
+    } else if (kasRes.data && kasRes.data.length === 0) {
+      result.kasList = DEMO_KAS;
+    }
+
+    // Storage Accounts
+    if (storageRes.data && storageRes.data.length > 0) {
+      result.storageAccounts = storageRes.data as StorageAccount[];
+    } else if (storageRes.data && storageRes.data.length === 0) {
+      result.storageAccounts = DEMO_STORAGE_ACCOUNTS;
+    }
+
+    // Categories
+    if (catRes.data && catRes.data.length > 0) {
+      result.categories = catRes.data as Category[];
+    } else if (catRes.data && catRes.data.length === 0) {
+      result.categories = DEMO_CATEGORIES;
+    }
+
+    // Profiles
+    if (profRes.data && profRes.data.length > 0) {
+      result.profiles = profRes.data as Profile[];
+    } else if (profRes.data && profRes.data.length === 0) {
+      result.profiles = DEMO_PROFILES;
+    }
+
+    // App Settings
+    if (settingsRes.data && settingsRes.data.length > 0) {
+      result.settings = settingsRes.data[0] as AppSettings;
+    }
+
+    // Transactions
     if (txRes.data) result.transactions = txRes.data as Transaction[];
     if (obRes.data) result.openingBalances = obRes.data as OpeningBalance[];
     if (pcRes.data) result.periodClosings = pcRes.data as PeriodClosing[];
     if (recRes.data) result.reconciliations = recRes.data as Reconciliation[];
     if (logRes.data) result.auditLogs = logRes.data as AuditLog[];
-    if (profRes.data && profRes.data.length > 0) result.profiles = profRes.data as Profile[];
     if (accessRes.data) result.userKasAccessList = accessRes.data as UserKasAccess[];
     if (bgRes.data) result.budgets = bgRes.data as Budget[];
     if (bgItemsRes.data) result.budgetItems = bgItemsRes.data as BudgetItem[];
@@ -199,12 +253,84 @@ export async function fetchAllDataFromSupabase(): Promise<{ success: boolean; da
     if (semesterRes.data) result.semesterReports = semesterRes.data as SemesterReport[];
     if (lpjRes.data) result.lpjReports = lpjRes.data as LpjReport[];
     if (exceptionsRes.data) result.lpjExceptions = exceptionsRes.data as LpjException[];
-    if (settingsRes.data && settingsRes.data.length > 0) result.settings = settingsRes.data[0] as AppSettings;
 
-    return { success: true, data: result };
+    return { success: true, data: result, tableErrors };
   } catch (err: any) {
-    console.error('Failed to load dataset from Supabase:', err);
+    console.error('[SIKU HKBP] Gagal memuat data dari Supabase:', err);
     return { success: false, error: err.message || 'Gagal mengambil data dari Supabase' };
+  }
+}
+
+/**
+ * Populate standard initial master data (HKBP chart of accounts, storage, profiles)
+ * into a newly provisioned Supabase database.
+ */
+export async function seedMasterDataToSupabase(): Promise<{ success: boolean; message: string }> {
+  const client = getSupabaseClient();
+  if (!isSupabaseConfigured || !client) {
+    return { success: false, message: 'Supabase belum terkonfigurasi. Pastikan Project URL dan Anon Key sudah diisi.' };
+  }
+
+  try {
+    const errors: string[] = [];
+
+    // 1. App settings
+    const { error: errSettings } = await client.from('app_settings').upsert(DEMO_SETTINGS);
+    if (errSettings) errors.push(`app_settings: ${errSettings.message}`);
+
+    // 2. Kas list
+    const { error: errKas } = await client.from('kas').upsert(DEMO_KAS);
+    if (errKas) errors.push(`kas: ${errKas.message}`);
+
+    // 3. Storage accounts
+    const { error: errStorage } = await client.from('storage_accounts').upsert(DEMO_STORAGE_ACCOUNTS);
+    if (errStorage) errors.push(`storage_accounts: ${errStorage.message}`);
+
+    // 4. Categories
+    const { error: errCat } = await client.from('categories').upsert(DEMO_CATEGORIES);
+    if (errCat) errors.push(`categories: ${errCat.message}`);
+
+    // 5. Profiles
+    const { error: errProf } = await client.from('profiles').upsert(DEMO_PROFILES);
+    if (errProf) errors.push(`profiles: ${errProf.message}`);
+
+    // 6. User Kas Access
+    const { error: errAccess } = await client.from('user_kas_access').upsert(DEMO_USER_KAS_ACCESS);
+    if (errAccess) errors.push(`user_kas_access: ${errAccess.message}`);
+
+    // 7. Opening balances (default 0)
+    const { error: errOb } = await client.from('opening_balances').upsert(DEMO_OPENING_BALANCES);
+    if (errOb) errors.push(`opening_balances: ${errOb.message}`);
+
+    // 8. Opening setup
+    const { error: errSetup } = await client.from('opening_setup').upsert(DEMO_OPENING_SETUP);
+    if (errSetup) errors.push(`opening_setup: ${errSetup.message}`);
+
+    // 9. LPJ settings & notes
+    const { error: errLpjSet } = await client.from('lpj_settings').upsert(DEMO_LPJ_SETTINGS);
+    if (errLpjSet) errors.push(`lpj_settings: ${errLpjSet.message}`);
+
+    const { error: errLpjNote } = await client.from('lpj_notes').upsert(DEMO_LPJ_NOTES);
+    if (errLpjNote) errors.push(`lpj_notes: ${errLpjNote.message}`);
+
+    // 10. Audit Body Members
+    const { error: errAudit } = await client.from('audit_body_members').upsert(DEMO_AUDIT_BODY_MEMBERS);
+    if (errAudit) errors.push(`audit_body_members: ${errAudit.message}`);
+
+    if (errors.length > 0) {
+      return {
+        success: false,
+        message: `Sebagian data master gagal diisi: ${errors.join('; ')}. Pastikan skrip SQL sudah dijalankan.`,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Data master awal HKBP (Kas, Kategori PPKU, Akun Bank/Brankas, Profil, Pengaturan) berhasil disimpan ke Supabase!',
+    };
+  } catch (err: any) {
+    console.error('Failed to seed master data to Supabase:', err);
+    return { success: false, message: `Gagal mengisi data master: ${err.message}` };
   }
 }
 
@@ -212,9 +338,10 @@ export async function fetchAllDataFromSupabase(): Promise<{ success: boolean; da
  * Universal upsert helper for single record
  */
 export async function syncUpsert(table: string, payload: any): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured || !supabase) return { success: true };
+  const client = getSupabaseClient();
+  if (!isSupabaseConfigured || !client) return { success: true };
   try {
-    const { error } = await supabase.from(table).upsert(payload);
+    const { error } = await client.from(table).upsert(payload);
     if (error) {
       console.error(`Supabase syncUpsert error [${table}]:`, error);
       return { success: false, error: error.message };
@@ -230,9 +357,10 @@ export async function syncUpsert(table: string, payload: any): Promise<{ success
  * Universal insert helper
  */
 export async function syncInsert(table: string, payload: any): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured || !supabase) return { success: true };
+  const client = getSupabaseClient();
+  if (!isSupabaseConfigured || !client) return { success: true };
   try {
-    const { error } = await supabase.from(table).insert(payload);
+    const { error } = await client.from(table).insert(payload);
     if (error) {
       console.error(`Supabase syncInsert error [${table}]:`, error);
       return { success: false, error: error.message };
@@ -253,9 +381,10 @@ export async function syncUpdate(
   matchCol = 'id',
   matchVal: any
 ): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured || !supabase) return { success: true };
+  const client = getSupabaseClient();
+  if (!isSupabaseConfigured || !client) return { success: true };
   try {
-    const { error } = await supabase.from(table).update(payload).eq(matchCol, matchVal);
+    const { error } = await client.from(table).update(payload).eq(matchCol, matchVal);
     if (error) {
       console.error(`Supabase syncUpdate error [${table}]:`, error);
       return { success: false, error: error.message };
@@ -275,9 +404,10 @@ export async function syncDelete(
   matchCol = 'id',
   matchVal: any
 ): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured || !supabase) return { success: true };
+  const client = getSupabaseClient();
+  if (!isSupabaseConfigured || !client) return { success: true };
   try {
-    const { error } = await supabase.from(table).delete().eq(matchCol, matchVal);
+    const { error } = await client.from(table).delete().eq(matchCol, matchVal);
     if (error) {
       console.error(`Supabase syncDelete error [${table}]:`, error);
       return { success: false, error: error.message };
@@ -293,36 +423,37 @@ export async function syncDelete(
  * Clean reset in Supabase: removes all live transactions and balances
  */
 export async function syncResetZeroDataInSupabase(): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured || !supabase) return { success: true };
+  const client = getSupabaseClient();
+  if (!isSupabaseConfigured || !client) return { success: true };
 
   try {
     // 1. Delete transactions
-    await supabase.from('transactions').delete().neq('id', '');
+    await client.from('transactions').delete().neq('id', '');
     // 2. Delete period closings & reconciliations
-    await supabase.from('period_closings').delete().neq('id', '');
-    await supabase.from('reconciliations').delete().neq('id', '');
+    await client.from('period_closings').delete().neq('id', '');
+    await client.from('reconciliations').delete().neq('id', '');
     // 3. Delete advances & settlements
-    await supabase.from('advance_settlements').delete().neq('id', '');
-    await supabase.from('advances').delete().neq('id', '');
+    await client.from('advance_settlements').delete().neq('id', '');
+    await client.from('advances').delete().neq('id', '');
     // 4. Delete receivables / payables
-    await supabase.from('receivables_payables').delete().neq('id', '');
+    await client.from('receivables_payables').delete().neq('id', '');
     // 5. Delete audit findings, reviews, counts, verifications
-    await supabase.from('audit_findings').delete().neq('id', '');
-    await supabase.from('audit_reviews').delete().neq('id', '');
-    await supabase.from('cash_counts').delete().neq('id', '');
-    await supabase.from('audit_period_verifications').delete().neq('id', '');
+    await client.from('audit_findings').delete().neq('id', '');
+    await client.from('audit_reviews').delete().neq('id', '');
+    await client.from('cash_counts').delete().neq('id', '');
+    await client.from('audit_period_verifications').delete().neq('id', '');
     // 6. Reset opening balances to 0
-    await supabase.from('opening_balances').update({ amount: 0 }).neq('id', '');
-    await supabase.from('opening_balance_entries').update({ total_amount: 0, status: 'drafting' }).neq('id', '');
+    await client.from('opening_balances').update({ amount: 0 }).neq('id', '');
+    await client.from('opening_balance_entries').update({ total_amount: 0, status: 'drafting' }).neq('id', '');
     // 7. Reset budgets and budget items to zero
-    await supabase.from('budget_reallocations').delete().neq('id', '');
-    await supabase.from('budget_items').delete().neq('id', '');
-    await supabase.from('budgets').delete().neq('id', '');
+    await client.from('budget_reallocations').delete().neq('id', '');
+    await client.from('budget_items').delete().neq('id', '');
+    await client.from('budgets').delete().neq('id', '');
     // 8. Delete fixed assets (aset tetap) and prior year summaries
-    await supabase.from('fixed_assets').delete().neq('id', '');
-    await supabase.from('prior_year_summaries').delete().neq('id', '');
-    await supabase.from('opening_balance_adjustments').delete().neq('id', '');
-    await supabase.from('opening_other_positions').delete().neq('id', '');
+    await client.from('fixed_assets').delete().neq('id', '');
+    await client.from('prior_year_summaries').delete().neq('id', '');
+    await client.from('opening_balance_adjustments').delete().neq('id', '');
+    await client.from('opening_other_positions').delete().neq('id', '');
 
     return { success: true };
   } catch (err: any) {

@@ -24,10 +24,11 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Sparkles,
+  Layers,
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { formatRupiah } from '../lib/formatters';
 import {
   supabaseUrl,
   supabaseAnonKey,
@@ -35,7 +36,9 @@ import {
   setSupabaseCredentials,
   clearSupabaseCredentials,
   testSupabaseConnection,
+  SupabaseTestResult,
 } from '../lib/supabase';
+import { seedMasterDataToSupabase } from '../lib/supabaseSync';
 
 export const SettingsPage: React.FC = () => {
   const { settings, updateSettings, resetAllTransactionsAndBalancesToZero } = useData();
@@ -48,7 +51,13 @@ export const SettingsPage: React.FC = () => {
   const [sbUrl, setSbUrl] = useState(supabaseUrl || '');
   const [sbKey, setSbKey] = useState(supabaseAnonKey || '');
   const [testingSb, setTestingSb] = useState(false);
-  const [sbStatusMsg, setSbStatusMsg] = useState<{ success: boolean; text: string } | null>(null);
+  const [seedingSb, setSeedingSb] = useState(false);
+  const [sbStatusMsg, setSbStatusMsg] = useState<{
+    success: boolean;
+    text: string;
+    requiresSql?: boolean;
+    tableDetails?: SupabaseTestResult['tableDetails'];
+  } | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
   const [showSqlGuide, setShowSqlGuide] = useState(false);
 
@@ -57,6 +66,45 @@ export const SettingsPage: React.FC = () => {
     await updateSettings(formData);
     setSuccessMsg(true);
     setTimeout(() => setSuccessMsg(false), 3000);
+  };
+
+  const handleTestOnlySupabase = async () => {
+    if (!sbUrl.trim() || !sbKey.trim()) {
+      setSbStatusMsg({
+        success: false,
+        text: 'Harap isi Project URL dan Anon Key Supabase terlebih dahulu untuk diuji.',
+      });
+      return;
+    }
+
+    setTestingSb(true);
+    setSbStatusMsg(null);
+
+    const test = await testSupabaseConnection(sbUrl, sbKey);
+    setTestingSb(false);
+
+    if (test.success) {
+      if (test.requiresSchemaExecution) {
+        setShowSqlGuide(true);
+        setSbStatusMsg({
+          success: true,
+          requiresSql: true,
+          text: test.message,
+        });
+      } else {
+        setSbStatusMsg({
+          success: true,
+          requiresSql: false,
+          tableDetails: test.tableDetails,
+          text: test.message,
+        });
+      }
+    } else {
+      setSbStatusMsg({
+        success: false,
+        text: test.message,
+      });
+    }
   };
 
   const handleTestAndSaveSupabase = async () => {
@@ -71,20 +119,32 @@ export const SettingsPage: React.FC = () => {
     setTestingSb(true);
     setSbStatusMsg(null);
 
-    // Save temporarily in localStorage to test live connection
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('siku_supabase_url', sbUrl.trim());
-      localStorage.setItem('siku_supabase_anon_key', sbKey.trim());
-    }
-
-    const test = await testSupabaseConnection();
+    const test = await testSupabaseConnection(sbUrl, sbKey);
     setTestingSb(false);
 
     if (test.success) {
-      setSbStatusMsg({ success: true, text: test.message });
-      setTimeout(() => {
-        setSupabaseCredentials(sbUrl, sbKey);
-      }, 1200);
+      if (test.requiresSchemaExecution) {
+        // Connected to Supabase host, but tables are missing
+        setShowSqlGuide(true);
+        setSbStatusMsg({
+          success: true,
+          requiresSql: true,
+          text: `${test.message} Kredensial telah disimpan. Setelah skrip SQL dieksekusi di Supabase, silakan muat ulang halaman.`,
+        });
+        // Save credentials without immediate reload so user can copy and run SQL
+        setSupabaseCredentials(sbUrl, sbKey, false);
+      } else {
+        // Tables are ready
+        setSbStatusMsg({
+          success: true,
+          requiresSql: false,
+          text: 'Koneksi ke Supabase berhasil dan seluruh tabel siap! Memuat ulang sistem untuk sinkronisasi data...',
+        });
+        // Save and reload
+        setTimeout(() => {
+          setSupabaseCredentials(sbUrl, sbKey, true);
+        }, 1200);
+      }
     } else {
       setSbStatusMsg({
         success: false,
@@ -95,7 +155,29 @@ export const SettingsPage: React.FC = () => {
 
   const handleDisconnectSupabase = () => {
     if (window.confirm('Apakah Anda yakin ingin memutuskan koneksi Supabase dan kembali ke Mode Demo?')) {
-      clearSupabaseCredentials();
+      clearSupabaseCredentials(true);
+    }
+  };
+
+  const handleSeedMasterData = async () => {
+    if (!isSupabaseConfigured) {
+      alert('Koneksikan ke Supabase terlebih dahulu sebelum mengisi data master.');
+      return;
+    }
+    const confirm = window.confirm(
+      'Apakah Anda ingin memasukkan data master HKBP Hutaraja (Daftar Kas, Kategori PPKU, Akun Bank/Brankas, Profil Pengurus) ke database Supabase?'
+    );
+    if (!confirm) return;
+
+    setSeedingSb(true);
+    const res = await seedMasterDataToSupabase();
+    setSeedingSb(false);
+
+    if (res.success) {
+      alert(res.message);
+      window.location.reload();
+    } else {
+      alert(res.message);
     }
   };
 
@@ -193,7 +275,7 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Notice on Local Storage Disabled */}
+        {/* Notice on Storage Mode */}
         <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-xl text-[11px] text-blue-900 flex items-start gap-2.5">
           <Server className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
           <div className="leading-relaxed">
@@ -242,7 +324,7 @@ export const SettingsPage: React.FC = () => {
 
         {/* Action Button & Status */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={handleTestAndSaveSupabase}
@@ -257,20 +339,42 @@ export const SettingsPage: React.FC = () => {
               ) : (
                 <>
                   <CheckCircle className="w-4 h-4" />
-                  <span>Uji Koneksi & Simpan Kredensial</span>
+                  <span>Uji & Hubungkan Supabase</span>
                 </>
               )}
             </button>
 
+            <button
+              type="button"
+              onClick={handleTestOnlySupabase}
+              disabled={testingSb}
+              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs flex items-center gap-1.5 border border-slate-200 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${testingSb ? 'animate-spin' : ''}`} />
+              <span>Uji Koneksi Saja</span>
+            </button>
+
             {isSupabaseConfigured && (
-              <button
-                type="button"
-                onClick={handleDisconnectSupabase}
-                className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-xl text-xs flex items-center gap-1.5 border border-rose-200 transition-colors"
-              >
-                <Unlink className="w-3.5 h-3.5" />
-                <span>Putuskan Koneksi</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleSeedMasterData}
+                  disabled={seedingSb}
+                  className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-xl text-xs flex items-center gap-1.5 border border-indigo-200 transition-colors disabled:opacity-50"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>{seedingSb ? 'Mengisi Data Master...' : 'Inisialisasi Data Master HKBP'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDisconnectSupabase}
+                  className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-xl text-xs flex items-center gap-1.5 border border-rose-200 transition-colors"
+                >
+                  <Unlink className="w-3.5 h-3.5" />
+                  <span>Putuskan Koneksi</span>
+                </button>
+              </>
             )}
           </div>
 
@@ -289,16 +393,40 @@ export const SettingsPage: React.FC = () => {
           <div
             className={`p-3.5 rounded-xl border text-xs flex items-start gap-2 animate-in fade-in ${
               sbStatusMsg.success
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                ? sbStatusMsg.requiresSql
+                  ? 'bg-amber-50 border-amber-200 text-amber-900'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-800'
                 : 'bg-rose-50 border-rose-200 text-rose-800'
             }`}
           >
             {sbStatusMsg.success ? (
-              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              sbStatusMsg.requiresSql ? (
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              ) : (
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              )
             ) : (
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
             )}
-            <div className="font-medium leading-relaxed">{sbStatusMsg.text}</div>
+            <div className="space-y-1">
+              <div className="font-medium leading-relaxed">{sbStatusMsg.text}</div>
+              {sbStatusMsg.tableDetails && (
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md text-[10px] font-semibold flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Tabel Kas
+                  </span>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md text-[10px] font-semibold flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Transaksi
+                  </span>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md text-[10px] font-semibold flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Kategori
+                  </span>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md text-[10px] font-semibold flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Pengaturan
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -323,7 +451,7 @@ export const SettingsPage: React.FC = () => {
 
             <ol className="list-decimal list-inside space-y-1.5 text-slate-300 text-[11px] leading-relaxed">
               <li>
-                Buka proyek Supabase Anda, lalu klik menu <strong>SQL Editor</strong> pada bilah sisi kiri.
+                Buka proyek Supabase Anda di <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-blue-400 underline">supabase.com/dashboard</a>, lalu klik menu <strong>SQL Editor</strong> pada bilah sisi kiri.
               </li>
               <li>
                 Klik tombol <strong>New Query</strong> (+), lalu beri nama query (misal: <code>SIKU_HKBP_SCHEMA</code>).
@@ -338,7 +466,7 @@ export const SettingsPage: React.FC = () => {
                 Buka menu <strong>Project Settings &gt; API</strong>, lalu salin <strong>Project URL</strong> dan <strong>anon public API key</strong> ke dalam formulir di atas.
               </li>
               <li>
-                Klik tombol <strong>&quot;Uji Koneksi &amp; Simpan Kredensial&quot;</strong>. Dashboard akan langsung terhubung ke database cloud Anda!
+                Klik tombol <strong>&quot;Uji &amp; Hubungkan Supabase&quot;</strong>. Aplikasi akan terhubung ke database cloud PostgreSQL Anda secara langsung!
               </li>
             </ol>
           </div>
@@ -456,7 +584,6 @@ export const SettingsPage: React.FC = () => {
             </div>
           </div>
         </div>
-
 
         {/* Save Button */}
         {isAdmin && (
