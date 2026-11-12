@@ -1,0 +1,8 @@
+{
+  "name": "Remix SIKU HKBP Hutaraja",
+  "description": "Sistem Informasi Keuangan HKBP Ressort Hutaraja untuk pengelolaan kas seksi, persetujuan ketua, penutupan buku, dan pelaporan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
