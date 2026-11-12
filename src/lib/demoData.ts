@@ -59,6 +59,18 @@ export const DEMO_SETTINGS: AppSettings = {
 
 export const DEMO_PROFILES: Profile[] = [
   {
+    id: 'user-superadmin',
+    email: 'hsupreddi@gmail.com',
+    full_name: 'Administrator Utama (hsupreddi@gmail.com)',
+    role: 'admin',
+    ecclesiastical_role: 'admin_sistem',
+    tohonan: 'sintua',
+    tingkat: 'huria',
+    wijk: 'Pusat / Huria',
+    phone: '0812-9999-8888',
+    is_active: true,
+  },
+  {
     id: 'user-admin',
     email: 'admin@hkbp-hutaraja.org',
     full_name: 'St. P. Sitompul (Admin)',

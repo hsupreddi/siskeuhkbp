@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   Search,
   Landmark,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
@@ -149,6 +150,12 @@ export const AppLayout: React.FC = () => {
       label: 'Data Master',
       icon: Database,
       allowed: canManageMasterData || isAdmin,
+    },
+    {
+      to: '/users',
+      label: 'Kelola Pengguna',
+      icon: Users,
+      allowed: isAdmin || isBendaharaUmum || isPendeta || isSekretaris,
     },
     {
       to: '/audit-logs',

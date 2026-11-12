@@ -435,7 +435,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [profiles, setProfiles] = useState<Profile[]>(() => {
     const saved = localStorage.getItem('siku_profiles');
-    return saved ? JSON.parse(saved) : DEMO_PROFILES;
+    if (saved) {
+      try {
+        const parsed: Profile[] = JSON.parse(saved);
+        if (!parsed.some((p) => p.id === 'user-superadmin' || p.email === 'hsupreddi@gmail.com')) {
+          return [DEMO_PROFILES[0], ...parsed];
+        }
+        return parsed;
+      } catch (e) {
+        return DEMO_PROFILES;
+      }
+    }
+    return DEMO_PROFILES;
   });
 
   const [fiscalYears, setFiscalYears] = useState<FiscalYear[]>(() => {
@@ -1751,7 +1762,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteProfile = async (id: string): Promise<{ success: boolean; error?: string }> => {
     const prof = profiles.find((p) => p.id === id);
     if (!prof) return { success: false, error: 'Pengguna tidak ditemukan.' };
-    if (prof.id === 'user-admin') {
+    if (prof.id === 'user-admin' || prof.id === 'user-superadmin') {
       return { success: false, error: 'Akun Administrator utama tidak boleh dihapus demi keamanan sistem.' };
     }
     setProfiles((prev) => prev.filter((p) => p.id !== id));

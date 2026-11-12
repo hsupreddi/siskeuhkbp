@@ -6,6 +6,45 @@
 -- Jalankan skrip ini sekali di Supabase SQL Editor (Dashboard -> SQL Editor -> New Query -> Run).
 -- =============================================================================
 
+-- 0. BERSIHKAN TABEL LAMA JIKA ADA KONFLIK TIPE DATA (CASCADE)
+drop table if exists public.opening_balance_entries cascade;
+drop table if exists public.opening_balance_adjustments cascade;
+drop table if exists public.opening_balances cascade;
+drop table if exists public.opening_setup cascade;
+drop table if exists public.opening_other_positions cascade;
+drop table if exists public.prior_year_summaries cascade;
+drop table if exists public.budget_reallocations cascade;
+drop table if exists public.budget_items cascade;
+drop table if exists public.budgets cascade;
+drop table if exists public.audit_reviews cascade;
+drop table if exists public.audit_findings cascade;
+drop table if exists public.audit_final_opinions cascade;
+drop table if exists public.cash_counts cascade;
+drop table if exists public.audit_period_verifications cascade;
+drop table if exists public.audit_engagements cascade;
+drop table if exists public.audit_body_members cascade;
+drop table if exists public.semester_reports cascade;
+drop table if exists public.lpj_reports cascade;
+drop table if exists public.lpj_exceptions cascade;
+drop table if exists public.fixed_assets cascade;
+drop table if exists public.asset_depreciations cascade;
+drop table if exists public.advances cascade;
+drop table if exists public.advance_settlements cascade;
+drop table if exists public.receivables_payables cascade;
+drop table if exists public.receivable_payable_payments cascade;
+drop table if exists public.lpj_notes cascade;
+drop table if exists public.lpj_settings cascade;
+drop table if exists public.transactions cascade;
+drop table if exists public.period_closings cascade;
+drop table if exists public.reconciliations cascade;
+drop table if exists public.audit_logs cascade;
+drop table if exists public.user_kas_access cascade;
+drop table if exists public.categories cascade;
+drop table if exists public.storage_accounts cascade;
+drop table if exists public.kas cascade;
+drop table if exists public.app_settings cascade;
+drop table if exists public.profiles cascade;
+
 -- 1. EXTENSIONS
 create extension if not exists "uuid-ossp";
 create extension if not exists "pgcrypto";
@@ -776,6 +815,7 @@ on conflict (id) do nothing;
 
 -- Initial Profiles (Struktural HKBP Hutaraja)
 insert into public.profiles (id, email, full_name, role, ecclesiastical_role, tohonan, tingkat, wijk, phone, is_active) values
+('user-superadmin', 'hsupreddi@gmail.com', 'Administrator Utama (hsupreddi@gmail.com)', 'admin', 'admin_sistem', 'sintua', 'huria', 'Pusat / Huria', '0812-9999-8888', true),
 ('user-admin', 'admin@hkbp-hutaraja.org', 'St. P. Sitompul (Admin)', 'admin', 'admin_sistem', 'sintua', 'huria', 'Wijk II', '0812-1111-2222', true),
 ('user-bendum', 'bendum@hkbp-hutaraja.org', 'St. B. Hutapea (Bendahara Huria)', 'bendahara_umum', 'bendahara_huria', 'sintua', 'huria', 'Wijk I', '0813-2222-3333', true),
 ('user-pendeta', 'pendeta@hkbp-hutaraja.org', 'Pdt. R. Simanjuntak, S.Th (Pendeta Ressort)', 'pendeta_ressort', 'pendeta_ressort', 'pendeta', 'ressort', null, '0811-3333-4444', true),

@@ -22,6 +22,7 @@ import { MasterDataPage } from './pages/MasterDataPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { UserManagementPage } from './pages/UserManagementPage';
 import { UserGuidePage } from './pages/UserGuidePage';
 import { LoginPage } from './pages/LoginPage';
 
@@ -45,6 +46,7 @@ export default function App() {
                 <Route path="lpj-data" element={<LpjDataPage />} />
                 <Route path="closing" element={<PeriodClosingPage />} />
                 <Route path="master" element={<MasterDataPage />} />
+                <Route path="users" element={<UserManagementPage />} />
                 <Route path="audit-logs" element={<AuditLogsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="guide" element={<UserGuidePage />} />
