@@ -416,7 +416,7 @@ export const UserManagementPage: React.FC = () => {
               <option value="all">Semua Tohonan HKBP</option>
               {TOHONAN_LIST.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name}
+                  {t.label}
                 </option>
               ))}
             </select>
@@ -490,7 +490,7 @@ export const UserManagementPage: React.FC = () => {
                 {/* Details Pills */}
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px] pt-1">
                   <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 font-medium">
-                    {tohonanObj?.name || 'Non-Tahbisan'}
+                    {tohonanObj?.label || 'Non-Tahbisan'}
                   </span>
                   {u.wijk && (
                     <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 font-medium">
@@ -698,7 +698,7 @@ export const UserManagementPage: React.FC = () => {
                   >
                     {TOHONAN_LIST.map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.name}
+                        {t.label}
                       </option>
                     ))}
                   </select>
